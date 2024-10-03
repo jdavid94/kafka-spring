@@ -1,9 +1,11 @@
 package com.kafka.spring.config;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.prometheusmetrics.PrometheusConfig;
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.IntegerDeserializer;
-import org.apache.kafka.common.serialization.IntegerSerializer;
+
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.context.annotation.Bean;
@@ -11,11 +13,13 @@ import org.springframework.context.annotation.Configuration;
 
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.HashMap;
 import java.util.Map;
 
 @Configuration
+@EnableScheduling
 public class KafkaConfiguration {
 
     public Map<String, Object> producerProperties(){
@@ -34,6 +38,9 @@ public class KafkaConfiguration {
     public KafkaTemplate<String, String> createTemplate() {
         Map<String, Object>senderProps= producerProperties();
         ProducerFactory<String, String> pf= new DefaultKafkaProducerFactory<>(senderProps);
+        pf.addListener(new
+                MicrometerProducerListener<String,String>
+                (meterRegistry()));
         KafkaTemplate<String, String> template=new KafkaTemplate<>(pf);
         return template;
     }
@@ -63,5 +70,11 @@ public class KafkaConfiguration {
         listenerFactory.setBatchListener(true); // Batch Listeners
         listenerFactory.setConcurrency(3);
         return listenerFactory;
+    }
+
+    @Bean
+    public MeterRegistry meterRegistry() {
+        PrometheusMeterRegistry meterRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+        return meterRegistry;
     }
 }
